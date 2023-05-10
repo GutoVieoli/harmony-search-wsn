@@ -10,6 +10,7 @@ void ZerarMatAux(float * ponteiro, int h, int w, int cellSize);
 
 float DistEuclidiana(float xSens, float ySens, float xPonto, float yPonto);
 float Cratio(float * ponteiro, int width, int height, int cellSize, float cth) ;
-float ObjCov (string *p, float cratio, int maxS);
+float ObjCov (string *p, float cratio, float minDist, int maxS);
+float MinDist(string *p, int maxS, int w, int h, int rs, int re);
 
 #endif

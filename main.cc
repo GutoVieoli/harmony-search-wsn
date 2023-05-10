@@ -12,13 +12,11 @@ std::mt19937 mt{ static_cast<unsigned int>(
 
 std::uniform_real_distribution<> zeroUm( 0.0, 1.0 );
 
-
-// #define objective function Objcov
 double const HMCR = 0.9;              // Taxa de consideraçao de memória harmônica
 double const PAR = 0.3;               // Taxa de ajuste de passo
 int const HMS = 30;                // Numero de soluçoes do vetor
 double const BW = 0.2;                // Largura de banda
-int const NI = 6000;               // Critério de parada (número de improvisações)
+int const NI = 60000;               // Critério de parada (número de improvisações)
 
 int const W = 50;                  // Width
 int const H = 50;                  // Height
@@ -41,6 +39,7 @@ const short MinS = 3;               // Mínimo de sensores da rede   2,78...
 const short MaxS = 25;              // Máximo de sensores da rede
 
 float matCoverage[ W/CellSize ][ H/CellSize ] = {0};   //faz saber se os sensores as celulas estao supervisionadas
+
 
 // Comprimento de cada vetor da memória harmonica
 int HMVlen ()
@@ -137,7 +136,6 @@ void MatrizPcov(string * pontHM)
     }
 }
 
-
 int main(void)
 {
     srand(time(NULL));
@@ -155,32 +153,28 @@ int main(void)
     PrintarHMS(pontHM, HMS, MaxS);          // Printar vetor harmonico
 
     float * pontMatCoverage = &matCoverage[0][0];
-    pontHM = &hm[29][0];
-    MatrizPcov(pontHM);
-    
-    
-    //PrintarPDP(pontMatCoverage, W, H, CellSize);
-    cout << "\nFuncao Objetivo: " << ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS) << "\n";
     ZerarMatAux(pontMatCoverage, W, H, CellSize);
     
+
+    // Calcula o objetivo dos valores iniciais, salva em uma matriz e obtem o menor deles
     for(int i = 0; i < HMS; i++)
     {
         pontHM = & hm[i][0];
         MatrizPcov(pontHM);
-        objetivos[i] = ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS);
+        objetivos[i] = ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MinDist(pontHM, MaxS, W, H, Rs, Re), MaxS);
         ZerarMatAux(pontMatCoverage, W, H, CellSize);
-        cout << "\n" << i+1 << ": " << objetivos[i];
+        std::cout << "\n" << i+1 << ": " << objetivos[i];   //--- Retirar futuro
         if( i == 0 || objetivos[i] < piorObj)
         {
             posPior = i;
             piorObj = objetivos[i];
         }
     }
+    //std::cout << "\n O pior objetivo foi " << piorObj << " na posicao " << posPior << "\n";
 
-    cout << "\n O pior objetivo foi " << piorObj << " na posicao " << posPior << "\n";
-
-    for(int iter = 0; iter < 6000; iter++)
+    for(int iter = 0; iter < NI; iter++)
     {
+        int hashtags = 0;
         // improvise a new solution vector
         for(int i1 = 0; i1 < MaxS; i1++)
         {
@@ -189,8 +183,10 @@ int main(void)
                 int randLoc = (int) (HMS * zeroUm(mt));
                 newSoluction[i1*2] = hm[ randLoc ][ i1* 2 ];                     // pos x
                 newSoluction[i1*2 + 1] = hm[ randLoc ][ i1* 2 + 1];              // pos y
-                //cout << newSoluction[i1*2] << " ";
-                //cout << newSoluction[i1*2 + 1] << " ";
+
+                if(newSoluction[i1*2] == "#")    // Conta o numero de sensores utilizados para verificar se é aceito
+                    hashtags++;
+
                 if( newSoluction[i1*2] != "#")
                 {
                     // Check to be pitch adjusted
@@ -202,32 +198,36 @@ int main(void)
                         float randBWx = ceil(zeroUm(mt) * BW * 10) / 10; 
                         float randBWy = ceil(zeroUm(mt) * BW * 10) / 10; 
                         
-                        if( stof(newSoluction[i1*2]) + randBWx <= Uxs && stof(newSoluction[i1*2]) - randBWx >= Lxs )
+                        float numX = stof( newSoluction[i1*2] );
+                        numX += (randomX == 0 ? randBWx : -randBWx);
+                        newSoluction[i1 * 2] = to_string(numX);
+
+                        if( stof(newSoluction[i1*2]) < Lxs)  // Se for menor que o limite inferior
                         {
-                            float num = stof( newSoluction[i1*2] );
-                            num += (randomX == 0 ? randBWx : -randBWx);
+                            float num = stof( newSoluction[i1*2] ) + randBWx;
                             newSoluction[i1 * 2] = to_string(num);
                         }
-                        if( stof(newSoluction[i1*2 + 1]) + randBWy <= Uys && stof(newSoluction[i1*2 + 1]) - randBWy >= Lys )
+                        else if( stof(newSoluction[i1*2]) > Uxs)   // Se for maior que o limite uperior
                         {
-                            float num = stof( newSoluction[i1*2 + 1] );
-                            num += (randomY == 0 ? randBWy : -randBWy); 
+                            float num = stof( newSoluction[i1*2] ) - randBWx;
+                            newSoluction[i1 * 2] = to_string(num);
+                        }
+
+
+                        float numY = stof( newSoluction[i1*2 + 1] );
+                        numY += (randomY == 0 ? randBWy : -randBWy); 
+                        newSoluction[i1*2 + 1] = to_string(numY);
+
+                        if( stof(newSoluction[i1*2 + 1]) < Lys)  // Se for menor que o limite inferior
+                        {
+                            float num = stof( newSoluction[i1*2] ) + randBWy;
                             newSoluction[i1*2 + 1] = to_string(num);
                         }
-                        /*
-                            newSoluction[i1 * 2] += (randomX == 0 ? randBWx : -randBWx);    
-                        else if( stof(newSoluction[i1*2]) + randBWx > Uxs)
-                            newSoluction[i1*2] = stof(newSoluction[i1*2]) - randBWx;
-                        else if( stof(newSoluction[i1*2]) - randBWx < Lxs)
-                            newSoluction[i1*2] = stof(newSoluction[i1*2]) + randBWx;
-
-                        if( stof(newSoluction[i1*2 + 1]) + randBWy <= Uys && stof(newSoluction[i1*2 + 1]) - randBWy >= Lys )
-                            newSoluction[i1*2 + 1] += (randomY == 0 ? randBWy : -randBWy); 
-                        else if( stof(newSoluction[i1*2 + 1]) + randBWy > Uys)
-                            newSoluction[i1*2 + 1] = stof(newSoluction[i1*2 + 1]) - randBWy;
-                        else if( stof(newSoluction[i1*2 + 1]) - randBWy < Lys)
-                            newSoluction[i1*2 + 1] = stof(newSoluction[i1*2 + 1]) + randBWy; 
-                       */              
+                        else if( stof(newSoluction[i1*2 + 1]) > Uxs)   // Se for maior que o limite uperior
+                        {
+                            float num = stof( newSoluction[i1*2] ) - randBWy;
+                            newSoluction[i1*2 + 1] = to_string(num);
+                        }        
                     }
                 }
             }
@@ -236,54 +236,54 @@ int main(void)
                 // Chose a random variable
                 newSoluction[i1*2] = to_string( floorf((Lxs + (Uxs - Lxs) * zeroUm(mt)) * 10) / 10 );     // pos x
                 newSoluction[i1*2 + 1] = to_string( floorf((Lys + (Uys - Lys) * zeroUm(mt)) * 10) / 10);   // pos y
-                //cout << newSoluction[i1*2] << " ";
-                //cout << newSoluction[i1*2 + 1] << " ";
             }
         }
+
         pontHM = & newSoluction[0];
         MatrizPcov(pontHM);
-        if( ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS) >= piorObj)
+        if( ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MinDist(pontHM, MaxS, W, H, Rs, Re), MaxS) >= piorObj && hashtags <= MaxS - MinS )
         {
-            for( int i = 0; i < MaxS; i++)
+            objetivos[posPior] =  ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MinDist(pontHM, MaxS, W, H, Rs, Re), MaxS);
+            for( int i = 0; i < MaxS; i++)    // Substitui a pior soluçao pela gerada
             {
                 hm[posPior][i*2] = newSoluction[i*2];
                 hm[posPior][i*2 + 1] = newSoluction[i*2 + 1];
             }
-        }
 
-        for(int i = 0; i < HMS; i++)
-        {
-            pontHM = & hm[i][0];
-            MatrizPcov(pontHM);
-            objetivos[i] = ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS);
-            ZerarMatAux(pontMatCoverage, W, H, CellSize);
-            //cout << "\n" << i+1 << ": " << objetivos[i];
-            if( i == 0 || objetivos[i] < piorObj)
+            for(int i = 0; i < HMS; i++)  // Encontra a nova pior soluçao
             {
-                posPior = i;
-                piorObj = objetivos[i];
+                if( i == 0 || objetivos[i] < piorObj)
+                {
+                    posPior = i;
+                    piorObj = objetivos[i];
+                }
             }
         }
+        ZerarMatAux(pontMatCoverage, W, H, CellSize);
         
     }
 
-    ZerarMatAux(pontMatCoverage, W, H, CellSize);
     pontHM = &newSoluction[0];
     MatrizPcov(pontHM);
     PrintarPDP(pontMatCoverage, W, H, CellSize);
-    cout << "\nFuncao Objetivo da novo vetor: " << ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS) << "\n";
+    std::cout << "\nFuncao Objetivo da novo vetor: " << ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MinDist(pontHM, MaxS, W, H, Rs, Re), MaxS) << "\n";
 
     pontHM = &hm[0][0];
     PrintarHMS(pontHM, HMS, MaxS);  
 
         for(int i = 0; i < HMS; i++)
         {
+            ZerarMatAux(pontMatCoverage, W, H, CellSize);
             pontHM = & hm[i][0];
             MatrizPcov(pontHM);
-            objetivos[i] = ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MaxS);
-            ZerarMatAux(pontMatCoverage, W, H, CellSize);
-            cout << "\n" << i+1 << ": " << objetivos[i];
+            objetivos[i] = ObjCov(pontHM, Cratio(pontMatCoverage, W, H, CellSize, Cth), MinDist(pontHM, MaxS, W, H, Rs, Re), MaxS);
+            std::cout << "\n" << i+1 << ": " << objetivos[i];
         }
 
+    pontHM = & hm[0][0];
+    MatrizPcov(pontHM);
+    PrintarPDP(pontMatCoverage, W, H, CellSize);
+    ZerarMatAux(pontMatCoverage, W, H, CellSize);
 
+    return 0;
 }
