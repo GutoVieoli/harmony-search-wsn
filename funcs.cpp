@@ -2,17 +2,19 @@
 #include <string>
 #include <random>
 #include <chrono>
+#include <iomanip>
 
 using namespace std;
 
-float ObjCov (string *p, float cratio, float minDist, int maxS)
+float ObjCov2 (bool *ativado, float cratio, float minDist, int maxS)
 {
     float s = 0;   // Calcular o numero de sensores utilizados
     for( int i = 0; i < maxS; i++ )
     {
-        if ( *p != "#")
+        if ( *ativado == 1){
             s++;
-        p += 2;
+        }
+        ativado++;
     }
     
     return (1/s) * cratio * minDist * 100;
@@ -60,24 +62,33 @@ void ZerarMatAux(float * ponteiro, int h, int w, int cellSize)
     }
 }
 
-void PrintarHMS (string * p, int hms, int maxS)
+void PrintarHMS2 (string * x, string * y, bool * ativado, int hms, int maxS)
 {
     cout << "\n\n";
-    for(int i = 0; i < hms; i++){
-        cout << i+1 << " -> ";
-        for(int j = 0; j < maxS*2; j++){
-            if( *p == "#"){
-                cout << *p << " ";
-                p++;
-            }
-            else 
-            {
-                float aux = stof(*p);
-                cout  << aux <<  " ";
-                p++;
-            }
+    for(int i = 0; i < hms; i++)
+    {
+        cout << "\n ___ Vetor " << i+1 << " __________________________________________________________________________________________________________________________________________________________________\n";
+
+        for(int auxX = 0; auxX < maxS; auxX++)
+        {
+            float auxi = stof(*x);
+            std::cout << std::setw(5) << auxi << " |";
+            x++;
         }
         cout << "\n";
+        for(int auxY = 0; auxY < maxS; auxY++)
+        {
+            float auxi = stof(*y);
+            std::cout << std::setw(5) << auxi << " |";
+            y++;            
+        }
+        cout << "\n";
+        for(int auxAtivado = 0; auxAtivado < maxS; auxAtivado++)
+        {
+            std::cout << std::setw(5) << *ativado << " |";
+            ativado++;            
+        }
+        cout << "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
     }
 }
 
@@ -87,34 +98,52 @@ float DistEuclidiana(float xSens, float ySens, float xPonto, float yPonto)
     return d;
 }
 
-float MinDist(string *p, int maxS, int w, int h, int rs, int re)
+
+float MinDist2(string *x, string *y, bool *ativado, int maxS, int w, int h, int rs, int re)
 {
     float menorDist = 999999999;
-    string cpyStr[maxS][2];
+    string cpyStr[maxS][3];
     int wm = w - (rs - re);
     int hm = h - (rs - re);
     float denominador = sqrt(pow(wm, 2) + pow(hm, 2));
 
     for(int i = 0;  i < maxS;  i++)
     {
-        cpyStr[i][0] = *p;
-        p++;
-        cpyStr[i][1] = *p;
-        p++;
+        cpyStr[i][0] = *x;
+        x++;
+        cpyStr[i][1] = *y;
+        y++;
+        cpyStr[i][2] = ( *ativado == true ? "true" : "false");
+        ativado++;
     }
 
     for(int i = 0;  i < maxS;  i++)
     {
         for(int j = 0; j < maxS; j++)
         {
-            if( i != j && (cpyStr[i][0] != "#") && (cpyStr[j][0] != "#") )
+            if( i != j && (cpyStr[i][2] != "false") && (cpyStr[j][2] != "false") )
             {
                 float distEuclidian = DistEuclidiana( std::stof(cpyStr[i][0]), std::stof(cpyStr[i][1]), std::stof(cpyStr[j][0]), std::stof(cpyStr[j][1]) );
-                if( distEuclidian < menorDist){
+                if( distEuclidian < menorDist)
+                {
                     menorDist = distEuclidian;
                 }
             }
         }
     }
     return menorDist / denominador;
+}
+
+
+float CalcPsov(float probabilidadeParcial, float probabilidadeRecemCalculada)
+{
+    if(probabilidadeParcial > 0)
+    {
+        probabilidadeRecemCalculada = (1 - probabilidadeRecemCalculada);
+        return (1 - probabilidadeParcial * probabilidadeRecemCalculada);
+    }
+    else 
+    {
+        return probabilidadeRecemCalculada;
+    }
 }
