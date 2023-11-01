@@ -6,255 +6,6 @@
 using namespace std;
 
 
-float G1;
-float G2;
-float matCoverage[ H/CELL_SIZE ][ W/CELL_SIZE ] = {0};   //faz saber se os sensores as celulas estao supervisionadas
-
-
-
-void printarHMS (string * x, string * y, bool * ativado, int hms, int maxS)
-{
-    cout << "\n\n";
-    for(int i = 0; i < hms; i++)
-    {
-        cout << "\n ___ Vetor " << i+1 << " __________________________________________________________________________________________________________________________________________________________________\n";
-
-        for(int auxX = 0; auxX < maxS; auxX++)
-        {
-            float auxi = stof(*x);
-            std::cout << std::setw(5) << auxi << " |";
-            x++;
-        }
-        cout << "\n";
-        for(int auxY = 0; auxY < maxS; auxY++)
-        {
-            float auxi = stof(*y);
-            std::cout << std::setw(5) << auxi << " |";
-            y++;            
-        }
-        cout << "\n";
-        for(int auxAtivado = 0; auxAtivado < maxS; auxAtivado++)
-        {
-            std::cout << std::setw(5) << *ativado << " |";
-            ativado++;            
-        }
-        cout << "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
-    }
-}
-
-float distEuclidiana(float xSens, float ySens, float xPonto, float yPonto)
-{
-    float d = sqrt(pow(xSens - xPonto, 2) + pow(ySens - yPonto, 2));
-    return d;
-}
-
-float minDist(string *x, string *y, bool *ativado, int maxS, int w, int h, float rs, float re)
-{
-    float menorDist = 999999999;
-    string cpyStr[maxS][3];
-    float wm = w - (rs - re);
-    float hm = h - (rs - re);
-    float denominador = sqrt(pow(wm, 2) + pow(hm, 2));
-
-    for(int i = 0;  i < maxS;  i++)
-    {
-        cpyStr[i][0] = *x;
-        x++;
-        cpyStr[i][1] = *y;
-        y++;
-        cpyStr[i][2] = ( *ativado == true ? "true" : "false");
-        ativado++;
-    }
-
-    for(int i = 0;  i < maxS;  i++)
-    {
-        for(int j = 0; j < maxS; j++)
-        {
-            if( i != j && (cpyStr[i][2] != "false") && (cpyStr[j][2] != "false") )
-            {
-                float distEuclidian = distEuclidiana( std::stof(cpyStr[i][0]), std::stof(cpyStr[i][1]), std::stof(cpyStr[j][0]), std::stof(cpyStr[j][1]) );
-                if( distEuclidian < menorDist)
-                {
-                    menorDist = distEuclidian;
-                }
-            }
-        }
-    }
-    return menorDist / denominador;
-}
-
-void calcGama(float distEuc)
-{
-    G1 = (RE - RS) + distEuc;
-    G2 = (RE + RS) - distEuc;
-}
-
-void zerarMatPcov(float * ponteiro)
-{
-    for ( int i = 0; i < (H/CELL_SIZE)*(W/CELL_SIZE); i++)
-    {
-        *ponteiro = 0;
-        ponteiro++;
-    }
-}
-
-float calcPsov(float probabilidadeParcial, float probabilidadeRecemCalculada)
-{
-    if(probabilidadeParcial > 0)
-    {
-        probabilidadeRecemCalculada = (1 - probabilidadeRecemCalculada);
-        probabilidadeParcial = (1 - probabilidadeParcial);
-        return (1 - ( probabilidadeParcial * probabilidadeRecemCalculada ) );
-    }
-    else 
-    {
-        return probabilidadeRecemCalculada;
-    }
-}
-
-float calcPcov(float dist, float probabilidadeParcial)   //probabilidade parcial é o valor que ja esta salvo na matriz aux naquela posiçao
-{
-    if( dist <= RS - RE )
-        return 1;
-    else if ( dist > RS + RE )
-        return probabilidadeParcial;
-    else {
-        float e = 2.718281828459;
-        float quocienteElev = A1 * pow(G1, B1);
-        float dividendoElev = pow(G2, B2);
-        float elev = -( quocienteElev / dividendoElev + A2);
-        //return pow(e, elev);
-        return calcPsov(probabilidadeParcial, pow(e, elev));
-    }
-}
-
-void matrizPcov(string * x, string * y, bool * ativado)
-{
-    for(int j = 1; j <= MaxS; j++)
-    {
-        if(*ativado != false)
-        {
-            for( int k = 1; k <= H / CELL_SIZE; k++)    // Categorization of the coverage probability for each demand point.
-            {    
-                for( int l = 1; l <= W / CELL_SIZE; l++)
-                {
-                    float dist = distEuclidiana( stof(*x), stof(*y),  (l*CELL_SIZE)-( CELL_SIZE/2.0f), (k*CELL_SIZE)-(CELL_SIZE/2.0f) );
-                    calcGama(dist);
-                    matCoverage[ k-1 ][ l-1 ] = calcPcov(dist, matCoverage[ k-1 ][ l-1 ]);
-                }
-            }
-        }
-        x++;
-        y++;
-        ativado++;
-    }
-}
-
-void printarPDP(float * ponteiro)  //PRINTAR PROBABILIDADE DO PONTO DE DEMANDA 
-{
-    cout << "\n\n-----------------------------------\n";
-    cout << "Categorization of the demand point.\n" << "-----------------------------------\n ";
-
-    for( int i = 0; i < (H/CELL_SIZE); i++){             // Print Categorization of the demand point.
-        for( int j = 0; j < (W/CELL_SIZE); j++){
-            cout << *ponteiro << " ";
-            ponteiro++;
-        }
-        cout << "\n ";        
-    }
-
-    cout << "----------------------------------\n\n";
-}
-
-float objCov (bool *ativado, float cratio, float minDist, int maxS)
-{
-    float s = 0;   // Calcular o numero de sensores utilizados
-    for( int i = 0; i < maxS; i++ )
-    {
-        if ( *ativado == 1){
-            s++;
-        }
-        ativado++;
-    }
-    
-    //return (1/s) * cratio * 100;
-    return ( (1/s) * cratio * ((minDist/2) + 1)  + (cratio / 30) ) * 10;
-}
-
-float cRatio(float * ponteiro) 
-{
-    float neff = 0;
-    float nall = 0;
-    for( int i = 0; i < (H/CELL_SIZE); i++){            
-        for( int j = 0; j < (W/CELL_SIZE); j++){
-            if( *ponteiro >= CTH )
-            {
-                neff++;
-            }
-            ponteiro++;
-            nall++;
-        }       
-    }
-    return (float) neff/nall;
-}
-
-void ajustePitch(string newSoluctX, string newSoluctY)
-{
-    float randomX = rand() % 2;   // 0 é mais, 1 é menos
-    float randomY = rand() % 2;   // 0 é mais, 1 é menos
-    float randBWx = ceil(zeroUm(mt) * BW * 10) / 10; 
-    float randBWy = ceil(zeroUm(mt) * BW * 10) / 10; 
-    
-    float numX = stof( newSoluctX );
-    numX += (randomX == 0 ? randBWx : -randBWx);
-    newSoluctX = to_string(numX);
-
-    if( stof(newSoluctX) < Lxs)  // Se for menor que o limite inferior
-    {
-        float num = stof( newSoluctX ) + randBWx;
-        newSoluctX = to_string(num);
-    }
-    else if( stof( newSoluctX ) > Uxs)   // Se for maior que o limite uperior
-    {
-        float num = stof( newSoluctX ) - randBWx;
-        newSoluctX = to_string(num);
-    }
-
-
-
-    float numY = stof( newSoluctY );
-    numY += (randomY == 0 ? randBWy : -randBWy); 
-    newSoluctY = to_string(numY);
-
-    if( stof( newSoluctY ) < Lys)  // Se for menor que o limite inferior
-    {
-        float num = stof( newSoluctY ) + randBWy;
-        newSoluctY = to_string(num);
-    }
-    else if( stof( newSoluctY ) > Uxs)   // Se for maior que o limite uperior
-    {
-        float num = stof( newSoluctY ) - randBWy;
-        newSoluctY = to_string(num);
-    } 
-        
-}
-
-int numSensores (bool *ativado, int maxS)
-{
-    float s = 0;   // Calcular o numero de sensores utilizados
-    for( int i = 0; i < maxS; i++ )
-    {
-        if ( *ativado == 1){
-            s++;
-        }
-        ativado++;
-    }
-
-    return s;
-}
-
-
-
 
 int main(void){
 
@@ -262,7 +13,7 @@ int main(void){
 
         srand(time(NULL));
         HarmonySearch harm;
-        HarmonyNew newSoluction;
+        HarmonyVector newSoluction;
         string * pontX = &harm.x[0][0];
         string * pontY = &harm.y[0][0];
         bool * pontAtivado = &harm.ativado[0][0];
@@ -274,11 +25,10 @@ int main(void){
         int indicePiorObj;
 
         iniciar_hm(pontX, pontY, pontAtivado);
-        //printarHMS(pontX, pontY, pontAtivado, HMS, MaxS); 
-
-        zerarMatPcov(pontMatCoverage);
-        matrizPcov(pontX, pontY, pontAtivado); 
-        //printarPDP(pontMatCoverage);
+        zerar_mat_pcov(pontMatCoverage);
+        matriz_pcov(pontX, pontY, pontAtivado); 
+        //printar_hm(pontX, pontY, pontAtivado); 
+        //printar_pdp(pontMatCoverage);
 
 
         for(int i = 0; i < HMS; i++)
@@ -287,11 +37,10 @@ int main(void){
             pontY = &harm.y[i][0];
             pontAtivado = &harm.ativado[i][0];
 
-            matrizPcov(pontX, pontY, pontAtivado); 
-            cratios[i] = cRatio(pontMatCoverage);
-            objetivos[i] = objCov(pontAtivado, cratios[i], minDist(pontX, pontY, pontAtivado, MaxS, W, H, RS, RE), MaxS); 
-            //cout << "\n" << i+1 << " - Cratio: " << cratios[i] << "  - Obj: " << objetivos[i];
-            zerarMatPcov(pontMatCoverage);
+            matriz_pcov(pontX, pontY, pontAtivado); 
+            cratios[i] = cratio(pontMatCoverage);
+            objetivos[i] = obj_cov(pontAtivado, cratios[i], min_dist(pontX, pontY, pontAtivado)); 
+            zerar_mat_pcov(pontMatCoverage);
 
             if( i == 0 || piorObj > objetivos[i] )
             {
@@ -300,7 +49,7 @@ int main(void){
             }
         }
 
-        cout << "\nO pior objetivo eh " << piorObj << " na posicao " << indicePiorObj ;
+        //cout << "\nO pior objetivo eh " << piorObj << " na posicao " << indicePiorObj ;
 
 
         for ( int iter = 0; iter <= NI; iter++)
@@ -325,7 +74,7 @@ int main(void){
                         // { Check to be pitch adjusted }
                         if( zeroUm(mt) <= PAR )
                         {
-                            ajustePitch(newSoluction.x[i], newSoluction.y[i]);
+                            ajuste_de_pitch(newSoluction.x[i], newSoluction.y[i]);
                         }
                     }
                     else
@@ -341,15 +90,16 @@ int main(void){
                     newSoluction.ativado[i] = true;
                 }
             }
+
             // { Update HM }
             if ( numSensorsOFF  <= MaxS - MinS )
             {
                 pontX = &newSoluction.x[0];
                 pontY = &newSoluction.y[0];
                 pontAtivado = &newSoluction.ativado[0];
-                matrizPcov(pontX, pontY, pontAtivado);
-                float novoCratio = cRatio(pontMatCoverage);
-                float novoObjetivo = objCov(pontAtivado, novoCratio, minDist(pontX, pontY, pontAtivado, MaxS, W, H, RS, RE), MaxS);
+                matriz_pcov(pontX, pontY, pontAtivado);
+                float novoCratio = cratio(pontMatCoverage);
+                float novoObjetivo = obj_cov(pontAtivado, novoCratio, min_dist(pontX, pontY, pontAtivado));
 
                 if( novoObjetivo > piorObj || ( novoObjetivo == piorObj && novoCratio >= cratios[indicePiorObj] ) )
                 {
@@ -373,39 +123,25 @@ int main(void){
                 }
 
             }
-            zerarMatPcov(pontMatCoverage);
+            zerar_mat_pcov(pontMatCoverage);
 
         }
+
 
         cout << "\n";
         int melhorObjPos = 0;
 
-        ofstream myfile ("out.txt", std::ios::app);  //______________________________________________________
         for(int i = 0; i < HMS; i++){
             if( objetivos[i] > objetivos[melhorObjPos] )
                 melhorObjPos = i;
-            pontAtivado = &harm.ativado[i][0];
-            cout << "\n " << i << " - Cratio: " << cratios[i] << " - Objetivo: " << objetivos[i] << " - Sensores: " << numSensores(pontAtivado, MaxS);
-            //myfile << "\n " << i << " - Cratio: " << cratios[i] << " - Objetivo: " << objetivos[i] << " - Sensores: " << 1 / ( objetivos[i] / (cratios[i]*100)  );
-            // pontX = &harm.x[i][0];
-            // pontY = &harm.y[i][0];
-            // pontAtivado = &harm.ativado[i][0];
-
-            // matrizPcov(pontX, pontY, pontAtivado);  
-            // float novoCratio =  cRatio(pontMatCoverage, W, H, CELL_SIZE, Cth);
-            // objetivos[i] = objCov(pontAtivado, novoCratio, minDist(pontX, pontY, pontAtivado, MaxS, W, H, RS, Re), MaxS); 
-            // cout << "\n" << i+1 << " - Cratio: " << cRatio(pontMatCoverage, W, H, CELL_SIZE, Cth) << "  - Obj: " << objetivos[i] << "  - Sensores: " << 1 / ( (objetivos[i] - (novoCratio / 6)) / (novoCratio*100)  );
-            // zerarMatPcov(pontMatCoverage, W, H, CELL_SIZE);
-
-            //cout << i+1 << " - " << objCov(pontAtivado, 5, 5, MaxS) << " " << minDist(pontX, pontY, pontAtivado, MaxS, W, H, RS, Re) << "\n";
         }
-        myfile << "\n " << melhorObjPos << " - Cratio: " << cratios[melhorObjPos] << " - Objetivo: " << objetivos[melhorObjPos] << " - Sensores: " << numSensores(&harm.ativado[melhorObjPos][0], MaxS);
-        myfile << "\n";
+
+        cout << "\n "  << "Melhor cobertura: " << cratios[melhorObjPos] << " | Sensores Utilizados: " << num_sensores(&harm.ativado[melhorObjPos][0]) << " | Valor da funcao objetivo: " << objetivos[melhorObjPos] << "\n";
+        printar_best (&harm.x[melhorObjPos][0], &harm.y[melhorObjPos][0], &harm.ativado[melhorObjPos][0]);
 
         pontX = &harm.x[0][0];
         pontY = &harm.y[0][0];
-        pontAtivado = &harm.ativado[0][0];
-        //printarHMS(pontX, pontY, pontAtivado, HMS, MaxS); 
+        pontAtivado = &harm.ativado[0][0]; 
 
     }
     return 0;
